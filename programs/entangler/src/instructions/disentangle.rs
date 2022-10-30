@@ -5,16 +5,16 @@ use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use crate::seeds::{AUTHORITY_SEED, COLLECTION_SEED, ENTANGLED_MINT_SEED};
 use crate::state::EntangledCollection;
 
-pub fn entangle(ctx: Context<Entangle>) -> Result<()> {
-    msg!("Entangle");
+pub fn disentangle(ctx: Context<Disentangle>) -> Result<()> {
+    msg!("Disentangle");
 
     // Transfer the original token to an escrow
     let original_transfer_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
             authority: ctx.accounts.signer.to_account_info(),
-            from: ctx.accounts.original_mint_account.to_account_info(),
-            to: ctx.accounts.original_mint_escrow.to_account_info(),
+            from: ctx.accounts.entangled_mint_account.to_account_info(),
+            to: ctx.accounts.entangled_mint_escrow.to_account_info(),
         },
     );
     token::transfer(original_transfer_ctx, 1)?;
@@ -28,8 +28,8 @@ pub fn entangle(ctx: Context<Entangle>) -> Result<()> {
         ctx.accounts.token_program.to_account_info(),
         Transfer {
             authority: ctx.accounts.entangler_authority.to_account_info(),
-            from: ctx.accounts.entangled_mint_escrow.to_account_info(),
-            to: ctx.accounts.entangled_mint_account.to_account_info(),
+            from: ctx.accounts.original_mint_escrow.to_account_info(),
+            to: ctx.accounts.original_mint_account.to_account_info(),
         },
         authority_signer_seeds,
     );
@@ -39,7 +39,7 @@ pub fn entangle(ctx: Context<Entangle>) -> Result<()> {
 }
 
 #[derive(Accounts)]
-pub struct Entangle<'info> {
+pub struct Disentangle<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -80,10 +80,10 @@ pub struct Entangle<'info> {
     pub original_metadata: UncheckedAccount<'info>,
 
     #[account(
-        mut,
+        init_if_needed,
+        payer = signer,
         associated_token::mint = original_mint,
         associated_token::authority = signer,
-        constraint = original_mint_account.amount == 1,
     )]
     pub original_mint_account: Box<Account<'info, TokenAccount>>,
 
@@ -105,10 +105,10 @@ pub struct Entangle<'info> {
     pub entangled_mint: Account<'info, Mint>,
 
     #[account(
-        init_if_needed,
-        payer = signer,
+        mut,
         associated_token::mint = entangled_mint,
         associated_token::authority = signer,
+        constraint = entangled_mint_account.amount == 1,
     )]
     pub entangled_mint_account: Box<Account<'info, TokenAccount>>,
 

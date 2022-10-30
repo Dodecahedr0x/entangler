@@ -14,8 +14,10 @@ pub fn create_collection(ctx: Context<CreateCollection>, id: Pubkey, royalties: 
     let entanglement_collection = &mut ctx.accounts.entangled_collection;
     entanglement_collection.id = id;
     entanglement_collection.original_mint = ctx.accounts.original_collection_mint.key();
-    entanglement_collection.entanglement_collection_mint =
+    entanglement_collection.collection_mint = ctx.accounts.original_collection_mint.key();
+    entanglement_collection.entangled_collection_mint =
         ctx.accounts.entangled_collection_mint.key();
+    entanglement_collection.royalties = royalties;
 
     let original_metadata =
         Metadata::from_account_info(&ctx.accounts.original_collection_metadata).unwrap();
@@ -109,7 +111,7 @@ pub struct CreateCollection<'info> {
 
     /// CHECK: Using constraints
     #[account(
-    //   address = mpl_token_metadata::pda::find_metadata_account(&original_collection_mint.key()).0,
+      address = mpl_token_metadata::pda::find_metadata_account(&original_collection_mint.key()).0,
       constraint = mpl_token_metadata::check_id(original_collection_metadata.owner),
     )]
     pub original_collection_metadata: UncheckedAccount<'info>,

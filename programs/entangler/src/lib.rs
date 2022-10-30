@@ -20,7 +20,15 @@ pub mod entangler {
         instructions::create_collection(ctx, id, royalties)
     }
 
+    pub fn initialize_pair(ctx: Context<InitializePair>) -> Result<()> {
+        instructions::initialize_pair(ctx)
+    }
+
     pub fn entangle(ctx: Context<Entangle>) -> Result<()> {
         instructions::entangle(ctx)
+    }
+
+    pub fn disentangle(ctx: Context<Disentangle>) -> Result<()> {
+        instructions::disentangle(ctx)
     }
 }

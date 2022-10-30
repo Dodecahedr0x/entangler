@@ -7,7 +7,7 @@ pub const COLLECTION_SEED: &str = "collection";
 pub const COLLECTION_MINT_SEED: &str = "collection-mint";
 
 #[constant]
-pub const ENTANGLEMENT_SEED: &str = "entanglement";
+pub const ENTANGLED_MINT_SEED: &str = "entanglement-mint";
 
 #[constant]
 pub const AUTHORITY_SEED: &str = "authority";

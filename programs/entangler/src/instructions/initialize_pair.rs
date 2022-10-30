@@ -1,45 +1,74 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program::invoke_signed;
 use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
+use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
+use mpl_token_metadata::instruction::create_metadata_accounts_v3;
+use mpl_token_metadata::state::{Creator, Metadata, TokenMetadataAccount};
 
 use crate::seeds::{AUTHORITY_SEED, COLLECTION_SEED, ENTANGLED_MINT_SEED};
 use crate::state::EntangledCollection;
 
-pub fn entangle(ctx: Context<Entangle>) -> Result<()> {
-    msg!("Entangle");
-
-    // Transfer the original token to an escrow
-    let original_transfer_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        Transfer {
-            authority: ctx.accounts.signer.to_account_info(),
-            from: ctx.accounts.original_mint_account.to_account_info(),
-            to: ctx.accounts.original_mint_escrow.to_account_info(),
-        },
-    );
-    token::transfer(original_transfer_ctx, 1)?;
+pub fn initialize_pair(ctx: Context<InitializePair>) -> Result<()> {
+    msg!("Init pair");
 
     let authority_bump = *ctx.bumps.get("entangler_authority").unwrap();
     let authority_seeds = &[AUTHORITY_SEED.as_bytes(), &[authority_bump]];
     let authority_signer_seeds = &[&authority_seeds[..]];
 
-    // Transfer from the escrow
-    let transfer_ctx = CpiContext::new_with_signer(
+    // Mint the token
+    let mint_ctx = CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
-        Transfer {
+        MintTo {
+            mint: ctx.accounts.entangled_mint.to_account_info(),
             authority: ctx.accounts.entangler_authority.to_account_info(),
-            from: ctx.accounts.entangled_mint_escrow.to_account_info(),
-            to: ctx.accounts.entangled_mint_account.to_account_info(),
+            to: ctx.accounts.entangled_mint_escrow.to_account_info(),
         },
         authority_signer_seeds,
     );
-    token::transfer(transfer_ctx, 1)?;
+    token::mint_to(mint_ctx, 1)?;
+
+    // Create metadata
+    let original_metadata = Metadata::from_account_info(&ctx.accounts.original_metadata).unwrap();
+    invoke_signed(
+        &create_metadata_accounts_v3(
+            ctx.accounts.metadata_program.key(),
+            ctx.accounts.entangled_metadata.key(),
+            ctx.accounts.entangled_mint.key(),
+            ctx.accounts.entangler_authority.key(),
+            ctx.accounts.signer.key(),
+            ctx.accounts.entangler_authority.key(),
+            original_metadata.data.name,
+            original_metadata.data.symbol,
+            original_metadata.data.uri,
+            Some(vec![Creator {
+                address: ctx.accounts.signer.key(),
+                verified: false,
+                share: 100,
+            }]),
+            ctx.accounts.entangled_collection.royalties,
+            false,
+            true,
+            None,
+            None,
+            None,
+        ),
+        &[
+            ctx.accounts.entangled_metadata.to_account_info(), // Metadata
+            ctx.accounts.entangled_mint.to_account_info(),     // Mint
+            ctx.accounts.entangler_authority.to_account_info(), // Mint authority
+            ctx.accounts.entangler_authority.to_account_info(), // Update authority
+            ctx.accounts.signer.to_account_info(),             // Payer
+            ctx.accounts.system_program.to_account_info(),     // System program
+            ctx.accounts.rent.to_account_info(),               // Rent
+        ],
+        authority_signer_seeds,
+    )?;
 
     Ok(())
 }
 
 #[derive(Accounts)]
-pub struct Entangle<'info> {
+pub struct InitializePair<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -66,7 +95,7 @@ pub struct Entangle<'info> {
     #[account(
         address = mpl_token_metadata::pda::find_metadata_account(&collection_mint.key()).0,
         constraint = mpl_token_metadata::check_id(collection_metadata.owner),
-      )]
+    )]
     pub collection_metadata: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -76,48 +105,39 @@ pub struct Entangle<'info> {
     #[account(
         address = mpl_token_metadata::pda::find_metadata_account(&original_mint.key()).0,
         constraint = mpl_token_metadata::check_id(original_metadata.owner),
-      )]
-    pub original_metadata: UncheckedAccount<'info>,
-
-    #[account(
-        mut,
-        associated_token::mint = original_mint,
-        associated_token::authority = signer,
-        constraint = original_mint_account.amount == 1,
+        // constraint = Metadata::from_account_info(&original_metadata).unwrap().collection.unwrap().key == collection_metadata.key(),
     )]
-    pub original_mint_account: Box<Account<'info, TokenAccount>>,
+    pub original_metadata: AccountInfo<'info>,
 
     #[account(
-        mut,
+        init,
+        payer = signer,
         associated_token::mint = original_mint,
         associated_token::authority = entangler_authority,
     )]
     pub original_mint_escrow: Box<Account<'info, TokenAccount>>,
 
     #[account(
+        init,
+        payer = signer,
         seeds = [
           ENTANGLED_MINT_SEED.as_bytes(),
           &entangled_collection.id.to_bytes(),
           &original_mint.key().to_bytes()
         ],
         bump,
+        mint::decimals = 0,
+        mint::authority = entangler_authority,
     )]
     pub entangled_mint: Account<'info, Mint>,
-
-    #[account(
-        init_if_needed,
-        payer = signer,
-        associated_token::mint = entangled_mint,
-        associated_token::authority = signer,
-    )]
-    pub entangled_mint_account: Box<Account<'info, TokenAccount>>,
 
     /// CHECK: Using constraints
     #[account(mut)]
     pub entangled_metadata: UncheckedAccount<'info>,
 
     #[account(
-        mut,
+        init,
+        payer = signer,
         associated_token::mint = entangled_mint,
         associated_token::authority = entangler_authority,
     )]
