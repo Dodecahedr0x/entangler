@@ -1,0 +1,22 @@
+[features]
+seeds = true
+skip-lint = false
+
+[programs.localnet]
+entangler = "H3YUE9XUgVA9pgsdQH37Rx9j3VMPbmpNW9NgZJQB7AMJ"
+
+[registry]
+url = "https://api.apr.dev"
+
+[test.validator]
+url = "https://api.mainnet-beta.solana.com"
+
+[[test.validator.clone]]
+address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+
+[provider]
+cluster = "localnet"
+wallet = "./tests/keypairs/test.json"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
