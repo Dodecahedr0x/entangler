@@ -16,8 +16,9 @@ pub mod entangler {
         ctx: Context<CreateCollection>,
         id: Pubkey,
         royalties: u16,
+        one_way: bool,
     ) -> Result<()> {
-        instructions::create_collection(ctx, id, royalties)
+        instructions::create_collection(ctx, id, royalties, one_way)
     }
 
     pub fn initialize_pair(ctx: Context<InitializePair>) -> Result<()> {

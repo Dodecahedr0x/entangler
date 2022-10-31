@@ -57,6 +57,7 @@ pub struct Disentangle<'info> {
         ],
         bump,
         has_one = collection_mint,
+        constraint = entangled_collection.one_way,
     )]
     pub entangled_collection: Account<'info, EntangledCollection>,
 

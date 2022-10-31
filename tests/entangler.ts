@@ -109,8 +109,9 @@ describe("entangler", () => {
     );
 
     const royalties = 500;
+    const oneWay = false;
     await program.methods
-      .createCollection(id.publicKey, royalties)
+      .createCollection(id.publicKey, royalties, oneWay)
       .accounts({
         signer: program.provider.publicKey,
         entanglerAuthority: entanglerAuthority,

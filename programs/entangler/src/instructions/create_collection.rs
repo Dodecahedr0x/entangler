@@ -8,7 +8,12 @@ use mpl_token_metadata::state::{Creator, Metadata, TokenMetadataAccount};
 use crate::seeds::{AUTHORITY_SEED, COLLECTION_MINT_SEED, COLLECTION_SEED};
 use crate::state::EntangledCollection;
 
-pub fn create_collection(ctx: Context<CreateCollection>, id: Pubkey, royalties: u16) -> Result<()> {
+pub fn create_collection(
+    ctx: Context<CreateCollection>,
+    id: Pubkey,
+    royalties: u16,
+    one_way: bool,
+) -> Result<()> {
     msg!("Creating the collection");
 
     let entanglement_collection = &mut ctx.accounts.entangled_collection;
@@ -18,6 +23,7 @@ pub fn create_collection(ctx: Context<CreateCollection>, id: Pubkey, royalties: 
     entanglement_collection.entangled_collection_mint =
         ctx.accounts.entangled_collection_mint.key();
     entanglement_collection.royalties = royalties;
+    entanglement_collection.one_way = one_way;
 
     let original_metadata =
         Metadata::from_account_info(&ctx.accounts.original_collection_metadata).unwrap();
@@ -47,14 +53,14 @@ pub fn create_collection(ctx: Context<CreateCollection>, id: Pubkey, royalties: 
             ctx.accounts.metadata_program.key(),
             ctx.accounts.entangled_collection_metadata.key(),
             ctx.accounts.entangled_collection_mint.key(),
-            ctx.accounts.entangler_authority.key(),
+            ctx.accounts.update_authority.key(),
             ctx.accounts.signer.key(),
-            ctx.accounts.entangler_authority.key(),
+            ctx.accounts.update_authority.key(),
             original_metadata.data.name,
             original_metadata.data.symbol,
             original_metadata.data.uri,
             Some(vec![Creator {
-                address: ctx.accounts.signer.key(),
+                address: ctx.accounts.update_authority.key(),
                 verified: false,
                 share: 100,
             }]),
@@ -68,8 +74,8 @@ pub fn create_collection(ctx: Context<CreateCollection>, id: Pubkey, royalties: 
         &[
             ctx.accounts.entangled_collection_metadata.to_account_info(), // Metadata
             ctx.accounts.entangled_collection_mint.to_account_info(),     // Mint
-            ctx.accounts.entangler_authority.to_account_info(),           // Mint authority
-            ctx.accounts.entangler_authority.to_account_info(),           // Update authority
+            ctx.accounts.update_authority.to_account_info(),              // Mint authority
+            ctx.accounts.update_authority.to_account_info(),              // Update authority
             ctx.accounts.signer.to_account_info(),                        // Payer
             ctx.accounts.system_program.to_account_info(),                // System program
             ctx.accounts.rent.to_account_info(),                          // Rent
@@ -85,6 +91,9 @@ pub fn create_collection(ctx: Context<CreateCollection>, id: Pubkey, royalties: 
 pub struct CreateCollection<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
+
+    /// The update authority of thee collection
+    pub update_authority: AccountInfo<'info>,
 
     #[account(
         mut,
@@ -137,7 +146,7 @@ pub struct CreateCollection<'info> {
         init,
         payer = signer,
         associated_token::mint = entangled_collection_mint,
-        associated_token::authority = signer,
+        associated_token::authority = update_authority,
     )]
     pub entangled_collection_mint_token_account: Box<Account<'info, TokenAccount>>,
 

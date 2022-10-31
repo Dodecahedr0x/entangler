@@ -16,6 +16,9 @@ pub struct EntangledCollection {
 
     /// Collection royalties
     pub royalties: u16,
+
+    /// Whether it is possible to disentangle
+    pub one_way: bool,
 }
 
 impl EntangledCollection {
