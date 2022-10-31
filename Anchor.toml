@@ -2,6 +2,9 @@
 seeds = true
 skip-lint = false
 
+[programs.mainnet]
+entangler = "H3YUE9XUgVA9pgsdQH37Rx9j3VMPbmpNW9NgZJQB7AMJ"
+
 [programs.localnet]
 entangler = "H3YUE9XUgVA9pgsdQH37Rx9j3VMPbmpNW9NgZJQB7AMJ"
 

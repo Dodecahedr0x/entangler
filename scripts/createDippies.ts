@@ -91,10 +91,9 @@ export default async function main() {
   const collectionMintMetadata = await getTokenMetadata(DIPPIES_KEY);
 
   const royalties = 500;
-  const ix = await program.methods
+  await program.methods
     .createCollection(DIPPIES_KEY, royalties, true)
     .accounts({
-      signer: DIPPIES_DAO_KEY,
       creator: DIPPIES_DAO_KEY,
       entanglerAuthority: entanglerAuthority,
       entangledCollection,
@@ -109,9 +108,11 @@ export default async function main() {
       rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       systemProgram: anchor.web3.SystemProgram.programId,
     })
-    .instruction();
+    .rpc();
 
-  console.log("IX Data:", serializeInstructionToBase64(ix));
+  console.log(
+    `Created entangler for collection ${DIPPIES_KEY.toString()} with creator ${DIPPIES_DAO_KEY.toString()} and ID ${DIPPIES_KEY.toString()}`
+  );
 }
 
 main();
