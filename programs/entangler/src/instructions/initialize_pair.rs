@@ -34,14 +34,14 @@ pub fn initialize_pair(ctx: Context<InitializePair>) -> Result<()> {
             ctx.accounts.metadata_program.key(),
             ctx.accounts.entangled_metadata.key(),
             ctx.accounts.entangled_mint.key(),
-            ctx.accounts.update_authority.key(),
+            ctx.accounts.entangler_authority.key(),
             ctx.accounts.signer.key(),
-            ctx.accounts.update_authority.key(),
+            ctx.accounts.entangler_authority.key(),
             original_metadata.data.name,
             original_metadata.data.symbol,
             original_metadata.data.uri,
             Some(vec![Creator {
-                address: ctx.accounts.update_authority.key(),
+                address: ctx.accounts.creator.key(),
                 verified: false,
                 share: 100,
             }]),
@@ -55,8 +55,8 @@ pub fn initialize_pair(ctx: Context<InitializePair>) -> Result<()> {
         &[
             ctx.accounts.entangled_metadata.to_account_info(), // Metadata
             ctx.accounts.entangled_mint.to_account_info(),     // Mint
-            ctx.accounts.update_authority.to_account_info(),   // Mint authority
-            ctx.accounts.update_authority.to_account_info(),   // Update authority
+            ctx.accounts.entangler_authority.to_account_info(), // Mint authority
+            ctx.accounts.entangler_authority.to_account_info(), // Update authority
             ctx.accounts.signer.to_account_info(),             // Payer
             ctx.accounts.system_program.to_account_info(),     // System program
             ctx.accounts.rent.to_account_info(),               // Rent
@@ -73,7 +73,11 @@ pub struct InitializePair<'info> {
     pub signer: Signer<'info>,
 
     /// The update authority of thee collection
-    pub update_authority: AccountInfo<'info>,
+    /// CHECK: Constraint
+    #[account(
+        constraint = creator.key() == Metadata::from_account_info(&collection_metadata).unwrap().data.creators.unwrap().get(0).unwrap().address,
+    )]
+    pub creator: AccountInfo<'info>,
 
     #[account(
       seeds = [AUTHORITY_SEED.as_bytes()],
@@ -108,7 +112,7 @@ pub struct InitializePair<'info> {
     #[account(
         address = mpl_token_metadata::pda::find_metadata_account(&original_mint.key()).0,
         constraint = mpl_token_metadata::check_id(original_metadata.owner),
-        // constraint = Metadata::from_account_info(&original_metadata).unwrap().collection.unwrap().key == collection_metadata.key(),
+        constraint = Metadata::from_account_info(&original_metadata).unwrap().collection.unwrap().key == collection_mint.key(),
     )]
     pub original_metadata: AccountInfo<'info>,
 

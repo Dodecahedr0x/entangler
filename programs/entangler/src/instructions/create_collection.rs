@@ -40,7 +40,7 @@ pub fn create_collection(
             authority: ctx.accounts.entangler_authority.to_account_info(),
             to: ctx
                 .accounts
-                .entangled_collection_mint_token_account
+                .entangled_collection_mint_account
                 .to_account_info(),
         },
         authority_signer_seeds,
@@ -53,14 +53,14 @@ pub fn create_collection(
             ctx.accounts.metadata_program.key(),
             ctx.accounts.entangled_collection_metadata.key(),
             ctx.accounts.entangled_collection_mint.key(),
-            ctx.accounts.update_authority.key(),
+            ctx.accounts.entangler_authority.key(),
             ctx.accounts.signer.key(),
-            ctx.accounts.update_authority.key(),
+            ctx.accounts.entangler_authority.key(),
             original_metadata.data.name,
             original_metadata.data.symbol,
             original_metadata.data.uri,
             Some(vec![Creator {
-                address: ctx.accounts.update_authority.key(),
+                address: ctx.accounts.creator.key(),
                 verified: false,
                 share: 100,
             }]),
@@ -74,8 +74,8 @@ pub fn create_collection(
         &[
             ctx.accounts.entangled_collection_metadata.to_account_info(), // Metadata
             ctx.accounts.entangled_collection_mint.to_account_info(),     // Mint
-            ctx.accounts.update_authority.to_account_info(),              // Mint authority
-            ctx.accounts.update_authority.to_account_info(),              // Update authority
+            ctx.accounts.entangler_authority.to_account_info(),           // Mint authority
+            ctx.accounts.entangler_authority.to_account_info(),           // Update authority
             ctx.accounts.signer.to_account_info(),                        // Payer
             ctx.accounts.system_program.to_account_info(),                // System program
             ctx.accounts.rent.to_account_info(),                          // Rent
@@ -92,8 +92,9 @@ pub struct CreateCollection<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    /// The update authority of thee collection
-    pub update_authority: AccountInfo<'info>,
+    /// The creator receiving royalties
+    /// CHECK: None needed
+    pub creator: AccountInfo<'info>,
 
     #[account(
         mut,
@@ -146,9 +147,9 @@ pub struct CreateCollection<'info> {
         init,
         payer = signer,
         associated_token::mint = entangled_collection_mint,
-        associated_token::authority = update_authority,
+        associated_token::authority = creator,
     )]
-    pub entangled_collection_mint_token_account: Box<Account<'info, TokenAccount>>,
+    pub entangled_collection_mint_account: Box<Account<'info, TokenAccount>>,
 
     /// Common Solana programs
     /// CHECK: CPI

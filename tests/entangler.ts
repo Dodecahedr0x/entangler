@@ -114,14 +114,14 @@ describe("entangler", () => {
       .createCollection(id.publicKey, royalties, oneWay)
       .accounts({
         signer: program.provider.publicKey,
+        creator: program.provider.publicKey,
         entanglerAuthority: entanglerAuthority,
         entangledCollection,
         originalCollectionMint: collectionMint,
         originalCollectionMetadata: collectionMintMetadata,
         entangledCollectionMint: entangledCollectionMint,
         entangledCollectionMetadata,
-        entangledCollectionMintTokenAccount:
-          entangledCollectionMintTokenAccount,
+        entangledCollectionMintAccount: entangledCollectionMintTokenAccount,
         metadataProgram: METADATA_PROGRAM_ID,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_PROGRAM_ID,
@@ -186,6 +186,7 @@ describe("entangler", () => {
 
     let initAccounts = {
       signer: program.provider.publicKey,
+      creator: program.provider.publicKey,
       entanglerAuthority: entanglerAuthority,
       entangledCollection,
       entanglement,

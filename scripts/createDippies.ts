@@ -92,16 +92,17 @@ export default async function main() {
 
   const royalties = 500;
   const ix = await program.methods
-    .createCollection(DIPPIES_KEY, royalties)
+    .createCollection(DIPPIES_KEY, royalties, true)
     .accounts({
       signer: DIPPIES_DAO_KEY,
+      creator: DIPPIES_DAO_KEY,
       entanglerAuthority: entanglerAuthority,
       entangledCollection,
       originalCollectionMint: DIPPIES_KEY,
       originalCollectionMetadata: collectionMintMetadata,
       entangledCollectionMint: entangledCollectionMint,
       entangledCollectionMetadata,
-      entangledCollectionMintTokenAccount: entangledCollectionMintTokenAccount,
+      entangledCollectionMintAccount: entangledCollectionMintTokenAccount,
       metadataProgram: METADATA_PROGRAM_ID,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,

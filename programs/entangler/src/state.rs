@@ -22,5 +22,5 @@ pub struct EntangledCollection {
 }
 
 impl EntangledCollection {
-    pub const LEN: usize = 8 + 4 * 32 + 2;
+    pub const LEN: usize = 8 + 4 * 32 + 2 + 1;
 }
