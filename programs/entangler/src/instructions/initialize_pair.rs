@@ -46,7 +46,7 @@ pub fn initialize_pair(ctx: Context<InitializePair>) -> Result<()> {
             Some(vec![
                 Creator {
                     address: ctx.accounts.entangler_authority.key(),
-                    verified: false,
+                    verified: true,
                     share: 0,
                 },
                 Creator {
