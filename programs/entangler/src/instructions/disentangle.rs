@@ -56,19 +56,19 @@ pub struct Disentangle<'info> {
             &entangled_collection.id.to_bytes(),
         ],
         bump,
-        has_one = collection_mint,
+        has_one = entangled_collection_mint,
         constraint = !entangled_collection.one_way,
     )]
     pub entangled_collection: Account<'info, EntangledCollection>,
 
-    pub collection_mint: Account<'info, Mint>,
+    pub entangled_collection_mint: Account<'info, Mint>,
 
     /// CHECK: Using constraints
     #[account(
-        address = mpl_token_metadata::pda::find_metadata_account(&collection_mint.key()).0,
-        constraint = mpl_token_metadata::check_id(collection_metadata.owner),
+        address = mpl_token_metadata::pda::find_metadata_account(&entangled_collection_mint.key()).0,
+        constraint = mpl_token_metadata::check_id(entangled_collection_metadata.owner),
       )]
-    pub collection_metadata: UncheckedAccount<'info>,
+    pub entangled_collection_metadata: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub original_mint: Account<'info, Mint>,

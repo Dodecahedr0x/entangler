@@ -3,10 +3,10 @@ seeds = true
 skip-lint = false
 
 [programs.mainnet]
-entangler = "H3YUE9XUgVA9pgsdQH37Rx9j3VMPbmpNW9NgZJQB7AMJ"
+entangler = "ABseVbbB9Dd2NaonudphxWJWc3Hq12C7PjGQ89HRkPaB"
 
 [programs.localnet]
-entangler = "H3YUE9XUgVA9pgsdQH37Rx9j3VMPbmpNW9NgZJQB7AMJ"
+entangler = "ABseVbbB9Dd2NaonudphxWJWc3Hq12C7PjGQ89HRkPaB"
 
 [registry]
 url = "https://api.apr.dev"

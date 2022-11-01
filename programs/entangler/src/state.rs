@@ -6,10 +6,7 @@ pub struct EntangledCollection {
     pub id: Pubkey,
 
     /// The original collection mint
-    pub original_mint: Pubkey,
-
-    /// The collection mint of the original tokens
-    pub collection_mint: Pubkey,
+    pub original_collection_mint: Pubkey,
 
     /// The collection mint of the entangled tokens
     pub entangled_collection_mint: Pubkey,
@@ -22,5 +19,18 @@ pub struct EntangledCollection {
 }
 
 impl EntangledCollection {
-    pub const LEN: usize = 8 + 4 * 32 + 2 + 1;
+    pub const LEN: usize = 8 + 3 * 32 + 2 + 1;
+}
+
+#[account]
+pub struct EntangledPair {
+    /// The original collection mint
+    pub original_mint: Pubkey,
+
+    /// The mint of the entangled tokens
+    pub entangled_mint: Pubkey,
+}
+
+impl EntangledPair {
+    pub const LEN: usize = 8 + 2 * 32;
 }

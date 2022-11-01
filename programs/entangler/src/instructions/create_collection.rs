@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
-use mpl_token_metadata::instruction::create_metadata_accounts_v3;
+use mpl_token_metadata::instruction::{create_master_edition_v3, create_metadata_accounts_v3};
 use mpl_token_metadata::state::{Creator, Metadata, TokenMetadataAccount};
 
 use crate::seeds::{AUTHORITY_SEED, COLLECTION_MINT_SEED, COLLECTION_SEED};
@@ -18,8 +18,7 @@ pub fn create_collection(
 
     let entanglement_collection = &mut ctx.accounts.entangled_collection;
     entanglement_collection.id = id;
-    entanglement_collection.original_mint = ctx.accounts.original_collection_mint.key();
-    entanglement_collection.collection_mint = ctx.accounts.original_collection_mint.key();
+    entanglement_collection.original_collection_mint = ctx.accounts.original_collection_mint.key();
     entanglement_collection.entangled_collection_mint =
         ctx.accounts.entangled_collection_mint.key();
     entanglement_collection.royalties = royalties;
@@ -59,13 +58,20 @@ pub fn create_collection(
             original_metadata.data.name,
             original_metadata.data.symbol,
             original_metadata.data.uri,
-            Some(vec![Creator {
-                address: ctx.accounts.creator.key(),
-                verified: false,
-                share: 100,
-            }]),
+            Some(vec![
+                Creator {
+                    address: ctx.accounts.entangler_authority.key(),
+                    verified: true,
+                    share: 0,
+                },
+                Creator {
+                    address: ctx.accounts.creator.key(),
+                    verified: false,
+                    share: 100,
+                },
+            ]),
             royalties,
-            false,
+            true,
             true,
             None,
             None,
@@ -83,6 +89,32 @@ pub fn create_collection(
         authority_signer_seeds,
     )?;
 
+    // Create master edition
+    invoke_signed(
+        &create_master_edition_v3(
+            ctx.accounts.metadata_program.key(),
+            ctx.accounts.master_edition.key(),
+            ctx.accounts.entangled_collection_mint.key(),
+            ctx.accounts.entangler_authority.key(),
+            ctx.accounts.entangler_authority.key(),
+            ctx.accounts.entangled_collection_metadata.key(),
+            ctx.accounts.signer.key(),
+            Some(0),
+        ),
+        &[
+            ctx.accounts.master_edition.to_account_info(),
+            ctx.accounts.entangled_collection_mint.to_account_info(),
+            ctx.accounts.entangler_authority.to_account_info(),
+            ctx.accounts.signer.to_account_info(),
+            ctx.accounts.entangled_collection_metadata.to_account_info(),
+            ctx.accounts.metadata_program.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            ctx.accounts.entangler_authority.to_account_info(),
+        ],
+        authority_signer_seeds,
+    )?;
+
     Ok(())
 }
 
@@ -96,15 +128,16 @@ pub struct CreateCollection<'info> {
     /// CHECK: None needed
     pub creator: AccountInfo<'info>,
 
+    /// The PDA that has authority over entangled minted
+    /// CHECK: Safe because this read-only account only gets used as a constraint
     #[account(
         mut,
         seeds = [AUTHORITY_SEED.as_bytes()],
         bump,
     )]
-    /// CHECK: Safe because this read-only account only gets used as a constraint
     pub entangler_authority: UncheckedAccount<'info>,
 
-    /// The global root
+    /// The account storing the collection's data
     #[account(
         init,
         payer = signer,
@@ -117,8 +150,15 @@ pub struct CreateCollection<'info> {
     )]
     pub entangled_collection: Account<'info, EntangledCollection>,
 
-    pub original_collection_mint: Account<'info, Mint>,
+    /// The master edition of the collection
+    /// CHECK: Done by MPL
+    #[account(mut)]
+    pub master_edition: UncheckedAccount<'info>,
 
+    /// The original collection mint
+    pub original_collection_mint: Box<Account<'info, Mint>>,
+
+    /// The original collection metadata
     /// CHECK: Using constraints
     #[account(
       address = mpl_token_metadata::pda::find_metadata_account(&original_collection_mint.key()).0,
@@ -126,6 +166,7 @@ pub struct CreateCollection<'info> {
     )]
     pub original_collection_metadata: UncheckedAccount<'info>,
 
+    /// The entangled collection mint
     #[account(
         init,
         payer = signer,
@@ -136,20 +177,23 @@ pub struct CreateCollection<'info> {
         bump,
         mint::decimals = 0,
         mint::authority = entangler_authority,
+        mint::freeze_authority  = entangler_authority,
     )]
-    pub entangled_collection_mint: Account<'info, Mint>,
+    pub entangled_collection_mint: Box<Account<'info, Mint>>,
 
+    /// The entangled collection metadata
     /// CHECK: Using constraints
     #[account(mut)]
     pub entangled_collection_metadata: UncheckedAccount<'info>,
 
+    /// The ATA storing the entangled mint
     #[account(
         init,
         payer = signer,
         associated_token::mint = entangled_collection_mint,
-        associated_token::authority = creator,
+        associated_token::authority = entangler_authority,
     )]
-    pub entangled_collection_mint_account: Box<Account<'info, TokenAccount>>,
+    pub entangled_collection_mint_account: Account<'info, TokenAccount>,
 
     /// Common Solana programs
     /// CHECK: CPI

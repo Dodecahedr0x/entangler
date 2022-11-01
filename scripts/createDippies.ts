@@ -16,11 +16,11 @@ const AUTHORITY_SEED = "authority";
 const COLLECTION_SEED = "collection";
 const COLLECTION_MINT_SEED = "collection-mint";
 
-const DIPPIES_KEY = new PublicKey(
+const DIPPIES_KEY = PublicKey.default;
+const DIPPIES_COLLECTION_MINT = new PublicKey(
   "318p2nhXSiKSPhsQhCtBL1fXNgjUUGPAXG5dbQqSCEpw"
 );
 const DIPPIES_DAO_KEY = new PublicKey(
-  // "5b9gHRJBgBgQx1HkSa6MmUhbT4zxh2UVFdMNE9FW5kn6"
   "3h2CFnu8w7NRemnX9ybVeXsXAP3agkMuC1Kz8TnERYUi"
 );
 
@@ -84,24 +84,36 @@ export default async function main() {
   );
   const entangledCollectionMintTokenAccount = await getAssociatedTokenAddress(
     entangledCollectionMint,
-    DIPPIES_DAO_KEY,
+    entanglerAuthority,
     true
   );
+  const [masterEdition] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("metadata"),
+      METADATA_PROGRAM_ID.toBuffer(),
+      entangledCollectionMint.toBuffer(),
+      Buffer.from("edition"),
+    ],
+    METADATA_PROGRAM_ID
+  );
 
-  const collectionMintMetadata = await getTokenMetadata(DIPPIES_KEY);
+  const collectionMintMetadata = await getTokenMetadata(
+    DIPPIES_COLLECTION_MINT
+  );
 
   const royalties = 500;
   await program.methods
-    .createCollection(DIPPIES_KEY, royalties, true)
+    .createCollection(DIPPIES_KEY, royalties, false)
     .accounts({
       creator: DIPPIES_DAO_KEY,
       entanglerAuthority: entanglerAuthority,
       entangledCollection,
-      originalCollectionMint: DIPPIES_KEY,
+      originalCollectionMint: DIPPIES_COLLECTION_MINT,
       originalCollectionMetadata: collectionMintMetadata,
       entangledCollectionMint: entangledCollectionMint,
       entangledCollectionMetadata,
       entangledCollectionMintAccount: entangledCollectionMintTokenAccount,
+      masterEdition,
       metadataProgram: METADATA_PROGRAM_ID,
       tokenProgram: TOKEN_PROGRAM_ID,
       associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -111,7 +123,7 @@ export default async function main() {
     .rpc();
 
   console.log(
-    `Created entangler for collection ${DIPPIES_KEY.toString()} with creator ${DIPPIES_DAO_KEY.toString()} and ID ${DIPPIES_KEY.toString()}`
+    `Created entangler for collection ${DIPPIES_COLLECTION_MINT.toString()} with creator ${DIPPIES_DAO_KEY.toString()} and ID ${DIPPIES_KEY.toString()}`
   );
 }
 
