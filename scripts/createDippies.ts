@@ -16,7 +16,9 @@ const AUTHORITY_SEED = "authority";
 const COLLECTION_SEED = "collection";
 const COLLECTION_MINT_SEED = "collection-mint";
 
-const DIPPIES_KEY = PublicKey.default;
+const DIPPIES_KEY = new PublicKey(
+  "UuGEwN9aeh676ufphbavfssWVxH7BJCqacq1RYhco8e"
+);
 const DIPPIES_COLLECTION_MINT = new PublicKey(
   "318p2nhXSiKSPhsQhCtBL1fXNgjUUGPAXG5dbQqSCEpw"
 );

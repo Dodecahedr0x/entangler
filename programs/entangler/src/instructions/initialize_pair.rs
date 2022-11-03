@@ -171,7 +171,7 @@ pub struct InitializePair<'info> {
     pub original_metadata: AccountInfo<'info>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = signer,
         associated_token::mint = original_mint,
         associated_token::authority = entangler_authority,
@@ -197,7 +197,7 @@ pub struct InitializePair<'info> {
     pub entangled_metadata: UncheckedAccount<'info>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = signer,
         associated_token::mint = entangled_mint,
         associated_token::authority = entangler_authority,

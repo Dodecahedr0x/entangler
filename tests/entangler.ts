@@ -31,7 +31,7 @@ import {
 } from "./utils";
 
 import { Entangler } from "../target/types/entangler";
-import { EntanglerWrapper } from "../export";
+import { EntanglerWrapper } from "../ts";
 import { Metaplex } from "@metaplex-foundation/js";
 import { expect } from "chai";
 
