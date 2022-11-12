@@ -24,3 +24,5 @@ wallet = "./tests/keypairs/test.json"
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 dippies = "yarn run ts-node scripts/createDippies.ts"
+entry = "yarn run ts-node scripts/createEntry.ts"
+state = "yarn run ts-node scripts/setState.ts"
