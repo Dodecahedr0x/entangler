@@ -1,48 +1,30 @@
 import * as anchor from "@project-serum/anchor";
 
-import {
-  ASSOCIATED_PROGRAM_ID,
-  TOKEN_PROGRAM_ID,
-} from "@project-serum/anchor/dist/cjs/utils/token";
-import {
-  AuthorityType,
-  getAccount,
-  getAssociatedTokenAddress,
-} from "@solana/spl-token";
+import { ENTANGLEMENT_MINT_SEED, EntanglerWrapper } from "../ts";
 import {
   Keypair,
   PublicKey,
-  SYSVAR_RENT_PUBKEY,
-  SystemProgram,
-  Transaction,
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
+import { Metaplex, WRAPPED_SOL_MINT } from "@metaplex-foundation/js";
 import {
-  PROGRAM_ID as METADATA_PROGRAM_ID,
-  signMetadataInstructionDiscriminator,
-} from "@metaplex-foundation/mpl-token-metadata";
-import {
-  createKeypairs,
-  getTokenMetadata,
-  mintNft,
-  printAccounts,
-  provider,
-} from "./utils";
+  NATIVE_MINT,
+  createAssociatedTokenAccount,
+  createWrappedNativeAccount,
+  getAccount,
+  getAssociatedTokenAddress,
+  getAssociatedTokenAddressSync,
+} from "@solana/spl-token";
+import { createKeypairs, mintNft, mintToken } from "./utils";
 
+import { EntangledCollection } from "./../ts/accounts/EntangledCollection";
 import { Entangler } from "../target/types/entangler";
-import { EntanglerWrapper } from "../ts";
-import { Metaplex } from "@metaplex-foundation/js";
+import { TOKEN_PROGRAM_ID } from "@project-serum/anchor/dist/cjs/utils/token";
 import { expect } from "chai";
 
-const AUTHORITY_SEED = "authority";
-const COLLECTION_SEED = "collection";
-const COLLECTION_MINT_SEED = "collection-mint";
-const ENTANGLEMENT_SEED = "entanglement";
-const ENTANGLEMENT_MINT_SEED = "entanglement-mint";
-
 describe("entangler", () => {
-  // anchor.setProvider(anchor.AnchorProvider.local());
+  let provider: anchor.AnchorProvider = anchor.AnchorProvider.local();
   anchor.workspace.Entangler as anchor.Program<Entangler>;
   const id = Keypair.generate();
   let admin = Keypair.generate();
@@ -50,17 +32,21 @@ describe("entangler", () => {
   let program = new anchor.Program<Entangler>(
     (anchor.workspace.Entangler as anchor.Program<Entangler>).idl,
     (anchor.workspace.Entangler as anchor.Program<Entangler>).programId,
-    new anchor.AnchorProvider(
-      provider.connection,
-      new anchor.Wallet(creator),
-      {}
-    )
+    new anchor.AnchorProvider(provider.connection, new anchor.Wallet(admin), {})
   );
-  let collectionMint, collectionMintMetadata;
+  let collectionMint,
+    collectionMintMetadata,
+    feeMint: PublicKey,
+    wallet: anchor.AnchorProvider;
   const originalCollectionMints: PublicKey[] = [];
 
   before(async () => {
     [admin, creator] = await createKeypairs(provider, 2);
+    provider = new anchor.AnchorProvider(
+      anchor.AnchorProvider.local().connection,
+      new anchor.Wallet(admin),
+      {}
+    );
 
     program = new anchor.Program<Entangler>(
       (anchor.workspace.Entangler as anchor.Program<Entangler>).idl,
@@ -70,6 +56,18 @@ describe("entangler", () => {
         new anchor.Wallet(admin),
         {}
       )
+    );
+    wallet = new anchor.AnchorProvider(
+      provider.connection,
+      new anchor.Wallet(admin),
+      {}
+    );
+
+    feeMint = await mintToken(
+      provider,
+      admin,
+      admin.publicKey,
+      new anchor.BN(10 ** 4)
     );
 
     // Mint collection
@@ -87,7 +85,7 @@ describe("entangler", () => {
         provider,
         "TEST",
         creator,
-        creator.publicKey,
+        admin.publicKey,
         collectionMint
       );
       originalCollectionMints.push(mint);
@@ -97,13 +95,32 @@ describe("entangler", () => {
   it("Is initialized!", async () => {
     const royalties = 500;
     const oneWay = false;
+    const key = "dippies";
+    const price = new anchor.BN(0);
 
     const entangler = new EntanglerWrapper(
       collectionMint,
-      program.provider.publicKey,
+      admin.publicKey,
       id.publicKey,
       creator.publicKey,
       royalties
+    );
+
+    await provider.connection.confirmTransaction(
+      await provider.sendAndConfirm(
+        new anchor.web3.Transaction().add(
+          entangler.instruction.setEntanglerState(
+            admin.publicKey,
+            creator.publicKey,
+            feeMint,
+            price
+          )
+        ),
+        [admin],
+        {
+          skipPreflight: true,
+        }
+      )
     );
 
     let tx = new VersionedTransaction(
@@ -116,17 +133,46 @@ describe("entangler", () => {
     );
     tx.sign([admin]);
     await provider.connection.confirmTransaction(
-      await program.provider.connection.sendTransaction(tx)
+      await program.provider.connection.sendTransaction(tx, {
+        skipPreflight: true,
+      })
     );
 
     const mintAccount = await getAccount(
       provider.connection,
-      entangler.entangledCollectionMintAccount
+      getAssociatedTokenAddressSync(
+        entangler.entangledCollectionMint,
+        entangler.entanglerAuthority,
+        true
+      )
     );
     expect(mintAccount.amount.toString()).to.equal("1");
     expect(mintAccount.owner.toString()).to.equal(
       entangler.entanglerAuthority.toString()
     );
+
+    await provider.connection.confirmTransaction(
+      await provider.sendAndConfirm(
+        new anchor.web3.Transaction().add(
+          entangler.instruction.createCollectionEntry(
+            key,
+            feeMint,
+            creator.publicKey
+          )
+        ),
+        [admin],
+        { skipPreflight: true }
+      )
+    );
+
+    expect(
+      (
+        await getAccount(
+          provider.connection,
+          getAssociatedTokenAddressSync(feeMint, creator.publicKey, true)
+        )
+      ).amount.toString()
+    ).to.equal(price.toString());
 
     const metadata = await new Metaplex(provider.connection)
       .nfts()
@@ -138,35 +184,24 @@ describe("entangler", () => {
       creator.publicKey.toString()
     );
 
-    const initTx = new VersionedTransaction(
-      new TransactionMessage({
-        payerKey: admin.publicKey,
-        recentBlockhash: (await provider.connection.getLatestBlockhash())
-          .blockhash,
-        instructions: [
-          entangler.instruction.initializePair(originalCollectionMints[0]),
-        ],
-      }).compileToV0Message()
-    );
-    initTx.sign([admin]);
     await provider.connection.confirmTransaction(
-      await provider.connection.sendTransaction(initTx, { skipPreflight: true })
+      await provider.sendAndConfirm(
+        new anchor.web3.Transaction().add(
+          entangler.instruction.initializePair(originalCollectionMints[0])
+        ),
+        [admin],
+        { skipPreflight: true }
+      )
     );
-    console.log("ok");
 
-    tx = new VersionedTransaction(
-      new TransactionMessage({
-        payerKey: admin.publicKey,
-        recentBlockhash: (await provider.connection.getLatestBlockhash())
-          .blockhash,
-        instructions: [
-          entangler.instruction.entangle(originalCollectionMints[0]),
-        ],
-      }).compileToV0Message()
-    );
-    tx.sign([admin]);
     await provider.connection.confirmTransaction(
-      await provider.connection.sendTransaction(tx, { skipPreflight: true })
+      await provider.sendAndConfirm(
+        new anchor.web3.Transaction().add(
+          entangler.instruction.entangle(originalCollectionMints[0])
+        ),
+        [admin],
+        { skipPreflight: true }
+      )
     );
 
     const [entangledMint] = PublicKey.findProgramAddressSync(
@@ -179,23 +214,23 @@ describe("entangler", () => {
     );
     const originalMintAccount = await getAssociatedTokenAddress(
       originalCollectionMints[0],
-      program.provider.publicKey,
+      provider.publicKey,
       true
     );
     const entangledMintAccount = await getAssociatedTokenAddress(
       entangledMint,
-      program.provider.publicKey,
+      provider.publicKey,
       true
     );
 
     expect(
       (
-        await getAccount(program.provider.connection, originalMintAccount)
+        await getAccount(provider.connection, originalMintAccount)
       ).amount.toString()
     ).to.equal("0");
     expect(
       (
-        await getAccount(program.provider.connection, entangledMintAccount)
+        await getAccount(provider.connection, entangledMintAccount)
       ).amount.toString()
     ).to.equal("1");
 

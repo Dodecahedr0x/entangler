@@ -1,6 +1,25 @@
 use anchor_lang::prelude::*;
 
 #[account]
+pub struct EntanglerState {
+    /// The admin of the entangler
+    pub admin: Pubkey,
+
+    /// The account earning the fee
+    pub earner: Pubkey,
+
+    /// The fee mint
+    pub fee_mint: Pubkey,
+
+    /// The cost to create an entry
+    pub price: u64,
+}
+
+impl EntanglerState {
+    pub const LEN: usize = 8 + 3 * 32 + 8;
+}
+
+#[account]
 pub struct EntangledCollection {
     /// The id of the entanglement
     pub id: Pubkey,
@@ -20,6 +39,21 @@ pub struct EntangledCollection {
 
 impl EntangledCollection {
     pub const LEN: usize = 8 + 3 * 32 + 2 + 1;
+}
+
+pub const MAX_KEY_SIZE: usize = 32;
+
+#[account]
+pub struct CollectionEntry {
+    /// The id of the entanglement
+    pub id: Pubkey,
+
+    /// The collection key
+    pub key: String,
+}
+
+impl CollectionEntry {
+    pub const LEN: usize = 8 + 32 + (4 + MAX_KEY_SIZE);
 }
 
 #[account]

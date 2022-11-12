@@ -12,6 +12,16 @@ declare_id!("ABseVbbB9Dd2NaonudphxWJWc3Hq12C7PjGQ89HRkPaB");
 pub mod entangler {
     use super::*;
 
+    /// Sets the state of the entangler
+    pub fn set_entangler_state(
+        ctx: Context<SetEntanglerState>,
+        admin: Pubkey,
+        earner: Pubkey,
+        price: u64,
+    ) -> Result<()> {
+        instructions::set_entangler_state(ctx, admin, earner, price)
+    }
+
     /// Creates an entangled collection from an existing collection.
     /// No need to have authority over the original collection
     pub fn create_collection(
@@ -21,6 +31,11 @@ pub mod entangler {
         one_way: bool,
     ) -> Result<()> {
         instructions::create_collection(ctx, id, royalties, one_way)
+    }
+
+    /// Creates an entry in the collection map
+    pub fn create_collection_entry(ctx: Context<CreateCollectionEntry>, key: String) -> Result<()> {
+        instructions::create_collection_entry(ctx, key)
     }
 
     /// Creates an entanglement pair for one of the collection's token

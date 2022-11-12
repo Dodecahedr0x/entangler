@@ -63,6 +63,40 @@ export const getTokenEdition = async (tokenMint: anchor.web3.PublicKey) => {
   return tokenMetadataAddress;
 };
 
+export const mintToken = async (
+  provider: anchor.Provider,
+  creator: anchor.web3.Keypair,
+  destination: anchor.web3.PublicKey,
+  amount: anchor.BN
+) => {
+  const mint = await createMint(
+    provider.connection,
+    creator,
+    creator.publicKey,
+    creator.publicKey,
+    9
+  );
+
+  const tokenAccount = await createAssociatedTokenAccount(
+    provider.connection,
+    creator,
+    mint,
+    destination
+  );
+
+  await mintToChecked(
+    provider.connection,
+    creator,
+    mint,
+    tokenAccount,
+    creator.publicKey,
+    amount.toNumber(),
+    9
+  );
+
+  return mint;
+};
+
 export const mintNft = async (
   provider: anchor.Provider,
   symbol: string,

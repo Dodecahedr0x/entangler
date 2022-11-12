@@ -9,15 +9,18 @@ import {
   SYSVAR_RENT_PUBKEY,
   SystemProgram,
 } from "@solana/web3.js";
+import { EntangledCollection, EntanglerState } from "./accounts";
 import {
   createCollection,
+  createCollectionEntry,
   disentangle,
   entangle,
   initializePair,
+  setEntanglerState,
 } from "./instructions";
 
+import BN from "bn.js";
 import { PROGRAM_ID as ENTANGLER_PROGRAM_ID } from "./programId";
-import { EntangledCollection } from "./accounts";
 import { PROGRAM_ID as METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
 
 export * from "./accounts";
@@ -26,10 +29,15 @@ export * from "./errors";
 export * from "./programId";
 
 export const AUTHORITY_SEED = "authority";
+export const STATE_SEED = "state";
 export const COLLECTION_SEED = "collection";
+export const COLLECTION_ENTRY_SEED = "collection-entry";
 export const COLLECTION_MINT_SEED = "collection-mint";
 export const ENTANGLEMENT_PAIR_SEED = "entanglement-pair";
 export const ENTANGLEMENT_MINT_SEED = "entanglement-mint";
+export const DIPPIES_DAO_KEY = new PublicKey(
+  "3h2CFnu8w7NRemnX9ybVeXsXAP3agkMuC1Kz8TnERYUi"
+);
 
 export class EntanglerWrapper {
   signer: PublicKey;
@@ -97,6 +105,12 @@ export class EntanglerWrapper {
         ENTANGLER_PROGRAM_ID
       )[0];
     },
+    entangledCollectionEntry: (key: string) => {
+      return PublicKey.findProgramAddressSync(
+        [Buffer.from(COLLECTION_ENTRY_SEED), Buffer.from(key)],
+        ENTANGLER_PROGRAM_ID
+      )[0];
+    },
     entangledCollectionMint: (id: PublicKey) => {
       return PublicKey.findProgramAddressSync(
         [Buffer.from(COLLECTION_MINT_SEED), id.toBuffer()],
@@ -127,6 +141,13 @@ export class EntanglerWrapper {
   };
 
   static fetcher = {
+    entanglerState: async (connection: Connection) => {
+      let entangledCollection = PublicKey.findProgramAddressSync(
+        [Buffer.from(STATE_SEED)],
+        ENTANGLER_PROGRAM_ID
+      )[0];
+      return await EntanglerState.fetch(connection, entangledCollection);
+    },
     entangledCollection: async (connection: Connection, id: PublicKey) => {
       let entangledCollection = PublicKey.findProgramAddressSync(
         [Buffer.from(COLLECTION_SEED), id.toBuffer()],
@@ -137,6 +158,28 @@ export class EntanglerWrapper {
   };
 
   instruction = {
+    setEntanglerState: (
+      admin: PublicKey,
+      earner: PublicKey,
+      feeMint: PublicKey,
+      price: BN
+    ) => {
+      const state = PublicKey.findProgramAddressSync(
+        [Buffer.from(STATE_SEED)],
+        ENTANGLER_PROGRAM_ID
+      )[0];
+      return setEntanglerState(
+        { admin, earner, price },
+        {
+          signer: this.signer,
+          state,
+          feeMint,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY,
+          systemProgram: SystemProgram.programId,
+        }
+      );
+    },
     createCollection: (oneWay: boolean) => {
       const [entangledCollectionMintAccount] = PublicKey.findProgramAddressSync(
         [
@@ -155,11 +198,52 @@ export class EntanglerWrapper {
           entangledCollection: this.entangledCollection,
           entangledCollectionMint: this.entangledCollectionMint,
           masterEdition: this.entangledCollectionMasterEdition,
-          entangledCollectionMetadata: this.entangledCollectionMetadata,
+          entangledCollectionMetadata:
+            EntanglerWrapper.address.entangledCollectionMetadata(this.id),
           originalCollectionMint: this.originalCollectionMint,
           originalCollectionMetadata: this.originalCollectionMetadata,
           entangledCollectionMintAccount,
           metadataProgram: METADATA_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY,
+          systemProgram: SystemProgram.programId,
+        }
+      );
+    },
+    createCollectionEntry: (
+      key: string,
+      feeMint: PublicKey,
+      earner: PublicKey
+    ) => {
+      const state = PublicKey.findProgramAddressSync(
+        [Buffer.from(STATE_SEED)],
+        ENTANGLER_PROGRAM_ID
+      )[0];
+      const signerAccount = getAssociatedTokenAddressSync(
+        feeMint,
+        this.signer,
+        true
+      );
+      const earnerAccount = getAssociatedTokenAddressSync(
+        feeMint,
+        earner,
+        true
+      );
+      return createCollectionEntry(
+        { key },
+        {
+          signer: this.signer,
+          state,
+          earner,
+          entangledCollection: EntanglerWrapper.address.entangledCollection(
+            this.id
+          ),
+          entangledCollectionEntry:
+            EntanglerWrapper.address.entangledCollectionEntry(key),
+          signerAccount,
+          earnerAccount,
+          feeMint,
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: SYSVAR_RENT_PUBKEY,
@@ -239,15 +323,6 @@ export class EntanglerWrapper {
         ],
         METADATA_PROGRAM_ID
       )[0];
-      const originalMintEscrow = PublicKey.findProgramAddressSync(
-        [
-          this.entanglerAuthority.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
-
       const [entangledMint] = PublicKey.findProgramAddressSync(
         [
           Buffer.from(ENTANGLEMENT_MINT_SEED),
@@ -264,53 +339,25 @@ export class EntanglerWrapper {
         ],
         METADATA_PROGRAM_ID
       )[0];
-      const entangledMintEscrow = PublicKey.findProgramAddressSync(
-        [
-          this.entanglerAuthority.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          entangledMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
-      const originalMintAccount = PublicKey.findProgramAddressSync(
-        [
-          this.signer.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
-      const entangledMintAccount = PublicKey.findProgramAddressSync(
-        [
-          this.signer.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          entangledMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
-
-      console.log(
-        Object.entries({
-          signer: this.signer,
-          entanglerAuthority: this.entanglerAuthority,
-          entangledCollection: this.entangledCollection,
-          entangledCollectionMint: this.entangledCollectionMint,
-          entangledCollectionMetadata: this.entangledCollectionMetadata,
-          originalMint,
-          originalMetadata,
-          originalMintAccount,
-          originalMintEscrow,
-          entangledMint,
-          entangledMetadata,
-          entangledMintAccount,
-          entangledMintEscrow,
-          metadataProgram: METADATA_PROGRAM_ID,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-          rent: SYSVAR_RENT_PUBKEY,
-          systemProgram: SystemProgram.programId,
-        }).map(([k, v]) => [k, v.toString()])
+      const originalMintEscrow = getAssociatedTokenAddressSync(
+        originalMint,
+        this.entanglerAuthority,
+        true
       );
+      const entangledMintEscrow = getAssociatedTokenAddressSync(
+        entangledMint,
+        this.entanglerAuthority,
+        true
+      );
+      const originalMintAccount = getAssociatedTokenAddressSync(
+        originalMint,
+        this.signer
+      );
+      const entangledMintAccount = getAssociatedTokenAddressSync(
+        entangledMint,
+        this.signer
+      );
+
       return entangle({
         signer: this.signer,
         entanglerAuthority: this.entanglerAuthority,
