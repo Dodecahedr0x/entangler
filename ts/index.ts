@@ -99,6 +99,12 @@ export class EntanglerWrapper {
   }
 
   static address = {
+    entanglerState: () => {
+      return PublicKey.findProgramAddressSync(
+        [Buffer.from(STATE_SEED)],
+        ENTANGLER_PROGRAM_ID
+      )[0];
+    },
     entangledCollection: (id: PublicKey) => {
       return PublicKey.findProgramAddressSync(
         [Buffer.from(COLLECTION_SEED), id.toBuffer()],
