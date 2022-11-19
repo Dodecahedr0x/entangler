@@ -1,27 +1,23 @@
 import * as anchor from "@project-serum/anchor";
 
-import { ENTANGLEMENT_MINT_SEED, EntanglerWrapper } from "../ts";
 import {
   Keypair,
   PublicKey,
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
-import { Metaplex, WRAPPED_SOL_MINT } from "@metaplex-foundation/js";
+import { createKeypairs, mintNft, mintToken } from "./utils";
 import {
-  NATIVE_MINT,
-  createAssociatedTokenAccount,
-  createWrappedNativeAccount,
   getAccount,
   getAssociatedTokenAddress,
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import { createKeypairs, mintNft, mintToken } from "./utils";
 
-import { EntangledCollection } from "./../ts/accounts/EntangledCollection";
 import { Entangler } from "../target/types/entangler";
-import { TOKEN_PROGRAM_ID } from "@project-serum/anchor/dist/cjs/utils/token";
+import { EntanglerWrapper } from "../ts";
+import { Metaplex } from "@metaplex-foundation/js";
 import { expect } from "chai";
+import { getEntangledMint } from "./../ts/pda";
 
 describe("entangler", () => {
   let provider: anchor.AnchorProvider = anchor.AnchorProvider.local();
@@ -204,13 +200,9 @@ describe("entangler", () => {
       )
     );
 
-    const [entangledMint] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from(ENTANGLEMENT_MINT_SEED),
-        id.publicKey.toBuffer(),
-        originalCollectionMints[0].toBuffer(),
-      ],
-      program.programId
+    const entangledMint = getEntangledMint(
+      id.publicKey,
+      originalCollectionMints[0]
     );
     const originalMintAccount = await getAssociatedTokenAddress(
       originalCollectionMints[0],

@@ -19,26 +19,25 @@ import {
   initializePair,
   setEntanglerState,
 } from "./instructions";
+import {
+  getCollectionEntry,
+  getEntangledCollection,
+  getEntangledCollectionMint,
+  getEntangledMint,
+  getEntangledPair,
+  getEntanglerAuthority,
+  getEntanglerState,
+  getMasterEdition,
+  getMetadata,
+} from "./pda";
 
 import BN from "bn.js";
-import { PROGRAM_ID as ENTANGLER_PROGRAM_ID } from "./programId";
 import { PROGRAM_ID as METADATA_PROGRAM_ID } from "@metaplex-foundation/mpl-token-metadata";
 
 export * from "./accounts";
 export * from "./instructions";
 export * from "./errors";
 export * from "./programId";
-
-export const AUTHORITY_SEED = "authority";
-export const STATE_SEED = "state";
-export const COLLECTION_SEED = "collection";
-export const COLLECTION_ENTRY_SEED = "collection-entry";
-export const COLLECTION_MINT_SEED = "collection-mint";
-export const ENTANGLEMENT_PAIR_SEED = "entanglement-pair";
-export const ENTANGLEMENT_MINT_SEED = "entanglement-mint";
-export const DIPPIES_DAO_KEY = new PublicKey(
-  "3h2CFnu8w7NRemnX9ybVeXsXAP3agkMuC1Kz8TnERYUi"
-);
 
 export class EntanglerWrapper {
   signer: PublicKey;
@@ -67,19 +66,20 @@ export class EntanglerWrapper {
     this.creator = creator;
     this.royalties = royalties;
 
-    this.entanglerAuthority = PublicKey.findProgramAddressSync(
-      [Buffer.from(AUTHORITY_SEED)],
-      ENTANGLER_PROGRAM_ID
-    )[0];
-
-    this.entangledCollection = EntanglerWrapper.address.entangledCollection(id);
-    this.entangledCollectionMint =
-      EntanglerWrapper.address.entangledCollectionMint(id);
-    this.entangledCollectionMasterEdition =
-      EntanglerWrapper.address.entangledCollectionMasterEdition(id);
-    this.entangledCollectionMetadata = this.entangledCollectionMintAccount =
-      EntanglerWrapper.address.entangledCollectionMetadata(id);
-
+    this.entanglerAuthority = getEntanglerAuthority();
+    this.entangledCollection = getEntangledCollection(id);
+    this.entangledCollectionMint = getEntangledCollectionMint(id);
+    this.entangledCollectionMasterEdition = getMasterEdition(
+      this.entangledCollectionMint
+    );
+    this.entangledCollectionMetadata = getMetadata(
+      this.entangledCollectionMint
+    );
+    this.entangledCollectionMintAccount = getAssociatedTokenAddressSync(
+      this.entangledCollectionMint,
+      this.entanglerAuthority,
+      true
+    );
     this.originalCollectionMint = originalCollectionMint;
     this.originalCollectionMetadata = PublicKey.findProgramAddressSync(
       [
@@ -99,68 +99,15 @@ export class EntanglerWrapper {
     )[0];
   }
 
-  static address = {
-    entanglerState: () => {
-      return PublicKey.findProgramAddressSync(
-        [Buffer.from(STATE_SEED)],
-        ENTANGLER_PROGRAM_ID
-      )[0];
-    },
-    entangledCollection: (id: PublicKey) => {
-      return PublicKey.findProgramAddressSync(
-        [Buffer.from(COLLECTION_SEED), id.toBuffer()],
-        ENTANGLER_PROGRAM_ID
-      )[0];
-    },
-    entangledCollectionEntry: (key: string) => {
-      return PublicKey.findProgramAddressSync(
-        [Buffer.from(COLLECTION_ENTRY_SEED), Buffer.from(key)],
-        ENTANGLER_PROGRAM_ID
-      )[0];
-    },
-    entangledCollectionMint: (id: PublicKey) => {
-      return PublicKey.findProgramAddressSync(
-        [Buffer.from(COLLECTION_MINT_SEED), id.toBuffer()],
-        ENTANGLER_PROGRAM_ID
-      )[0];
-    },
-    entangledCollectionMasterEdition: (id: PublicKey) => {
-      return PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          EntanglerWrapper.address.entangledCollectionMint(id).toBuffer(),
-          Buffer.from("edition"),
-        ],
-        METADATA_PROGRAM_ID
-      )[0];
-    },
-    entangledCollectionMetadata: (id: PublicKey) => {
-      return PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          EntanglerWrapper.address.entangledCollectionMint(id).toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
-      )[0];
-    },
-  };
-
   static fetcher = {
     entanglerState: async (connection: Connection) => {
-      let entangledCollection = PublicKey.findProgramAddressSync(
-        [Buffer.from(STATE_SEED)],
-        ENTANGLER_PROGRAM_ID
-      )[0];
-      return await EntanglerState.fetch(connection, entangledCollection);
+      return await EntanglerState.fetch(connection, getEntanglerState());
     },
     entangledCollection: async (connection: Connection, id: PublicKey) => {
-      let entangledCollection = PublicKey.findProgramAddressSync(
-        [Buffer.from(COLLECTION_SEED), id.toBuffer()],
-        ENTANGLER_PROGRAM_ID
-      )[0];
-      return await EntangledCollection.fetch(connection, entangledCollection);
+      return await EntangledCollection.fetch(
+        connection,
+        getEntangledCollection(id)
+      );
     },
   };
 
@@ -171,10 +118,7 @@ export class EntanglerWrapper {
       feeMint: PublicKey,
       price: BN
     ) => {
-      const state = PublicKey.findProgramAddressSync(
-        [Buffer.from(STATE_SEED)],
-        ENTANGLER_PROGRAM_ID
-      )[0];
+      const state = getEntanglerState();
       return setEntanglerState(
         { admin, earner, price },
         {
@@ -188,13 +132,10 @@ export class EntanglerWrapper {
       );
     },
     createCollection: (oneWay: boolean) => {
-      const [entangledCollectionMintAccount] = PublicKey.findProgramAddressSync(
-        [
-          this.entanglerAuthority.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          this.entangledCollectionMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
+      const entangledCollectionMintAccount = getAssociatedTokenAddressSync(
+        this.entangledCollectionMint,
+        this.entanglerAuthority,
+        true
       );
       return createCollection(
         { id: this.id, royalties: this.royalties, oneWay },
@@ -205,8 +146,9 @@ export class EntanglerWrapper {
           entangledCollection: this.entangledCollection,
           entangledCollectionMint: this.entangledCollectionMint,
           masterEdition: this.entangledCollectionMasterEdition,
-          entangledCollectionMetadata:
-            EntanglerWrapper.address.entangledCollectionMetadata(this.id),
+          entangledCollectionMetadata: getMetadata(
+            this.entangledCollectionMint
+          ),
           originalCollectionMint: this.originalCollectionMint,
           originalCollectionMetadata: this.originalCollectionMetadata,
           entangledCollectionMintAccount,
@@ -223,10 +165,7 @@ export class EntanglerWrapper {
       feeMint: PublicKey,
       earner: PublicKey
     ) => {
-      const state = PublicKey.findProgramAddressSync(
-        [Buffer.from(STATE_SEED)],
-        ENTANGLER_PROGRAM_ID
-      )[0];
+      const state = getEntanglerState();
       const signerAccount = getAssociatedTokenAddressSync(
         feeMint,
         this.signer,
@@ -243,11 +182,8 @@ export class EntanglerWrapper {
           signer: this.signer,
           state,
           earner,
-          entangledCollection: EntanglerWrapper.address.entangledCollection(
-            this.id
-          ),
-          entangledCollectionEntry:
-            EntanglerWrapper.address.entangledCollectionEntry(key),
+          entangledCollection: getEntangledCollection(this.id),
+          entangledCollectionEntry: getCollectionEntry(key),
           signerAccount,
           earnerAccount,
           feeMint,
@@ -259,40 +195,15 @@ export class EntanglerWrapper {
       );
     },
     initializePair: (originalMint: PublicKey) => {
-      const originalMetadata = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
-      )[0];
+      const originalMetadata = getMetadata(originalMint);
       const originalMintEscrow = getAssociatedTokenAddressSync(
         originalMint,
         this.entanglerAuthority,
         true
       );
-
-      const [entangledMint] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from(ENTANGLEMENT_MINT_SEED),
-          this.id.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        ENTANGLER_PROGRAM_ID
-      );
-      const [entangledPair] = PublicKey.findProgramAddressSync(
-        [Buffer.from(ENTANGLEMENT_PAIR_SEED), entangledMint.toBuffer()],
-        ENTANGLER_PROGRAM_ID
-      );
-      const entangledMetadata = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          entangledMint.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
-      )[0];
+      const entangledMint = getEntangledMint(this.id, originalMint);
+      const entangledPair = getEntangledPair(entangledMint);
+      const entangledMetadata = getMetadata(entangledMint);
       const entangledMintEscrow = getAssociatedTokenAddressSync(
         entangledMint,
         this.entanglerAuthority,
@@ -322,35 +233,14 @@ export class EntanglerWrapper {
       });
     },
     entangle: (originalMint: PublicKey) => {
-      const originalMetadata = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
-      )[0];
-      const [entangledMint] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from(ENTANGLEMENT_MINT_SEED),
-          this.id.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        ENTANGLER_PROGRAM_ID
-      );
-      const entangledMetadata = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          entangledMint.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
-      )[0];
+      const originalMetadata = getMetadata(originalMint);
       const originalMintEscrow = getAssociatedTokenAddressSync(
         originalMint,
         this.entanglerAuthority,
         true
       );
+      const entangledMint = getEntangledMint(this.id, originalMint);
+      const entangledMetadata = getMetadata(entangledMint);
       const entangledMintEscrow = getAssociatedTokenAddressSync(
         entangledMint,
         this.entanglerAuthority,
@@ -387,63 +277,27 @@ export class EntanglerWrapper {
       });
     },
     disentangle: (originalMint: PublicKey) => {
-      const originalMetadata = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
-      )[0];
-      const originalMintEscrow = PublicKey.findProgramAddressSync(
-        [
-          this.entanglerAuthority.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
-
-      const [entangledMint] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from(ENTANGLEMENT_MINT_SEED),
-          this.id.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        ENTANGLER_PROGRAM_ID
+      const originalMetadata = getMetadata(originalMint);
+      const originalMintEscrow = getAssociatedTokenAddressSync(
+        originalMint,
+        this.entanglerAuthority,
+        true
       );
-      const entangledMetadata = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          entangledMint.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
-      )[0];
-      const entangledMintEscrow = PublicKey.findProgramAddressSync(
-        [
-          this.entanglerAuthority.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          entangledMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
-      const originalMintAccount = PublicKey.findProgramAddressSync(
-        [
-          this.signer.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
-      const entangledMintAccount = PublicKey.findProgramAddressSync(
-        [
-          this.signer.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          entangledMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
+      const entangledMint = getEntangledMint(this.id, originalMint);
+      const entangledMetadata = getMetadata(entangledMint);
+      const entangledMintEscrow = getAssociatedTokenAddressSync(
+        entangledMint,
+        this.entanglerAuthority,
+        true
+      );
+      const originalMintAccount = getAssociatedTokenAddressSync(
+        originalMint,
+        this.signer
+      );
+      const entangledMintAccount = getAssociatedTokenAddressSync(
+        entangledMint,
+        this.signer
+      );
 
       return disentangle({
         signer: this.signer,
@@ -467,63 +321,19 @@ export class EntanglerWrapper {
       });
     },
     burnOriginal: (originalMint: PublicKey) => {
-      const originalMetadata = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
-      )[0];
+      const originalMetadata = getMetadata(originalMint);
       const originalMintEscrow = getAssociatedTokenAddressSync(
         originalMint,
         this.entanglerAuthority,
         true
       );
-      const [entangledMint] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from(ENTANGLEMENT_MINT_SEED),
-          this.id.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        ENTANGLER_PROGRAM_ID
+      const entangledMint = getEntangledMint(this.id, originalMint);
+      const entangledPair = getEntangledPair(entangledMint);
+      const entangledMintAccount = getAssociatedTokenAddressSync(
+        entangledMint,
+        this.signer
       );
-      const [entangledPair] = PublicKey.findProgramAddressSync(
-        [Buffer.from(ENTANGLEMENT_PAIR_SEED), entangledMint.toBuffer()],
-        ENTANGLER_PROGRAM_ID
-      );
-      const entangledMetadata = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("metadata"),
-          METADATA_PROGRAM_ID.toBuffer(),
-          entangledMint.toBuffer(),
-        ],
-        METADATA_PROGRAM_ID
-      )[0];
-      const entangledMintEscrow = PublicKey.findProgramAddressSync(
-        [
-          this.entanglerAuthority.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          entangledMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
-      const originalMintAccount = PublicKey.findProgramAddressSync(
-        [
-          this.signer.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          originalMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
-      const entangledMintAccount = PublicKey.findProgramAddressSync(
-        [
-          this.signer.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          entangledMint.toBuffer(),
-        ],
-        ASSOCIATED_TOKEN_PROGRAM_ID
-      )[0];
+      const masterEdition = getMasterEdition(originalMint);
 
       return burnOriginal({
         signer: this.signer,
@@ -531,15 +341,7 @@ export class EntanglerWrapper {
         entangledCollection: this.entangledCollection,
         entangledPair,
         entangledCollectionMint: this.entangledCollectionMint,
-        masterEdition: PublicKey.findProgramAddressSync(
-          [
-            Buffer.from("metadata"),
-            METADATA_PROGRAM_ID.toBuffer(),
-            originalMint.toBuffer(),
-            Buffer.from("edition"),
-          ],
-          METADATA_PROGRAM_ID
-        )[0],
+        masterEdition,
         originalMint,
         originalMetadata,
         originalMintEscrow,

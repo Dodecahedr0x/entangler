@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
+use anchor_lang::solana_program::system_instruction::transfer;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{Mint, Token, TokenAccount};
 use mpl_token_metadata::instruction::burn_nft;
@@ -40,8 +41,18 @@ pub fn burn_original(ctx: Context<BurnOriginal>) -> Result<()> {
     )?;
 
     let refund = ctx.accounts.entangler_authority.lamports() - lamports_before;
-    **ctx.accounts.entangler_authority.try_borrow_mut_lamports()? -= refund;
-    **ctx.accounts.signer.try_borrow_mut_lamports()? += refund;
+    invoke_signed(
+        &transfer(
+            ctx.accounts.entangler_authority.key,
+            ctx.accounts.signer.key,
+            refund,
+        ),
+        &[
+            ctx.accounts.entangler_authority.to_account_info(),
+            ctx.accounts.signer.to_account_info(),
+        ],
+        authority_signer_seeds,
+    )?;
 
     Ok(())
 }
