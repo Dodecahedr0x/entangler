@@ -52,4 +52,9 @@ pub mod entangler {
     pub fn disentangle(ctx: Context<Disentangle>) -> Result<()> {
         instructions::disentangle(ctx)
     }
+
+    /// Burn original token but prevents future disentanglement
+    pub fn burn_original(ctx: Context<BurnOriginal>) -> Result<()> {
+        instructions::burn_original(ctx)
+    }
 }

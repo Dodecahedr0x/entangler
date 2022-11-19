@@ -11,6 +11,7 @@ import {
 } from "@solana/web3.js";
 import { EntangledCollection, EntanglerState } from "./accounts";
 import {
+  burnOriginal,
   createCollection,
   createCollectionEntry,
   disentangle,
@@ -458,6 +459,92 @@ export class EntanglerWrapper {
         entangledMetadata,
         entangledMintAccount,
         entangledMintEscrow,
+        metadataProgram: METADATA_PROGRAM_ID,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        rent: SYSVAR_RENT_PUBKEY,
+        systemProgram: SystemProgram.programId,
+      });
+    },
+    burnOriginal: (originalMint: PublicKey) => {
+      const originalMetadata = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("metadata"),
+          METADATA_PROGRAM_ID.toBuffer(),
+          originalMint.toBuffer(),
+        ],
+        METADATA_PROGRAM_ID
+      )[0];
+      const originalMintEscrow = getAssociatedTokenAddressSync(
+        originalMint,
+        this.entanglerAuthority,
+        true
+      );
+      const [entangledMint] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from(ENTANGLEMENT_MINT_SEED),
+          this.id.toBuffer(),
+          originalMint.toBuffer(),
+        ],
+        ENTANGLER_PROGRAM_ID
+      );
+      const [entangledPair] = PublicKey.findProgramAddressSync(
+        [Buffer.from(ENTANGLEMENT_PAIR_SEED), entangledMint.toBuffer()],
+        ENTANGLER_PROGRAM_ID
+      );
+      const entangledMetadata = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("metadata"),
+          METADATA_PROGRAM_ID.toBuffer(),
+          entangledMint.toBuffer(),
+        ],
+        METADATA_PROGRAM_ID
+      )[0];
+      const entangledMintEscrow = PublicKey.findProgramAddressSync(
+        [
+          this.entanglerAuthority.toBuffer(),
+          TOKEN_PROGRAM_ID.toBuffer(),
+          entangledMint.toBuffer(),
+        ],
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      )[0];
+      const originalMintAccount = PublicKey.findProgramAddressSync(
+        [
+          this.signer.toBuffer(),
+          TOKEN_PROGRAM_ID.toBuffer(),
+          originalMint.toBuffer(),
+        ],
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      )[0];
+      const entangledMintAccount = PublicKey.findProgramAddressSync(
+        [
+          this.signer.toBuffer(),
+          TOKEN_PROGRAM_ID.toBuffer(),
+          entangledMint.toBuffer(),
+        ],
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      )[0];
+
+      return burnOriginal({
+        signer: this.signer,
+        entanglerAuthority: this.entanglerAuthority,
+        entangledCollection: this.entangledCollection,
+        entangledPair,
+        entangledCollectionMint: this.entangledCollectionMint,
+        masterEdition: PublicKey.findProgramAddressSync(
+          [
+            Buffer.from("metadata"),
+            METADATA_PROGRAM_ID.toBuffer(),
+            originalMint.toBuffer(),
+            Buffer.from("edition"),
+          ],
+          METADATA_PROGRAM_ID
+        )[0],
+        originalMint,
+        originalMetadata,
+        originalMintEscrow,
+        entangledMint,
+        entangledMintAccount,
         metadataProgram: METADATA_PROGRAM_ID,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,

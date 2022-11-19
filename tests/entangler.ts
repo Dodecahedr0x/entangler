@@ -234,19 +234,10 @@ describe("entangler", () => {
       ).amount.toString()
     ).to.equal("1");
 
-    tx = new VersionedTransaction(
-      new TransactionMessage({
-        payerKey: admin.publicKey,
-        recentBlockhash: (await provider.connection.getLatestBlockhash())
-          .blockhash,
-        instructions: [
-          entangler.instruction.disentangle(originalCollectionMints[0]),
-        ],
-      }).compileToV0Message()
-    );
-    tx.sign([admin]);
-    await provider.connection.confirmTransaction(
-      await provider.connection.sendTransaction(tx)
+    await provider.sendAndConfirm(
+      new anchor.web3.Transaction().add(
+        entangler.instruction.disentangle(originalCollectionMints[0])
+      )
     );
     expect(
       (
@@ -258,5 +249,23 @@ describe("entangler", () => {
         await getAccount(program.provider.connection, entangledMintAccount)
       ).amount.toString()
     ).to.equal("0");
+
+    // Re entangle and burn
+    await provider.sendAndConfirm(
+      new anchor.web3.Transaction().add(
+        entangler.instruction.entangle(originalCollectionMints[0])
+      ),
+      [admin],
+      { skipPreflight: true }
+    );
+    await provider.connection.confirmTransaction(
+      await provider.sendAndConfirm(
+        new anchor.web3.Transaction().add(
+          entangler.instruction.burnOriginal(originalCollectionMints[0])
+        ),
+        [admin],
+        { skipPreflight: true }
+      )
+    );
   });
 });
