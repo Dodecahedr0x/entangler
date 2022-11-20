@@ -8,6 +8,8 @@ export interface BurnOriginalAccounts {
   entanglerAuthority: PublicKey
   entangledCollection: PublicKey
   entangledPair: PublicKey
+  originalCollectionMint: PublicKey
+  originalCollectionMetadata: PublicKey
   originalMint: PublicKey
   originalMetadata: PublicKey
   /** The master edition of the token */
@@ -35,6 +37,16 @@ export function burnOriginal(accounts: BurnOriginalAccounts) {
       isWritable: false,
     },
     { pubkey: accounts.entangledPair, isSigner: false, isWritable: true },
+    {
+      pubkey: accounts.originalCollectionMint,
+      isSigner: false,
+      isWritable: false,
+    },
+    {
+      pubkey: accounts.originalCollectionMetadata,
+      isSigner: false,
+      isWritable: true,
+    },
     { pubkey: accounts.originalMint, isSigner: false, isWritable: true },
     { pubkey: accounts.originalMetadata, isSigner: false, isWritable: true },
     { pubkey: accounts.masterEdition, isSigner: false, isWritable: true },

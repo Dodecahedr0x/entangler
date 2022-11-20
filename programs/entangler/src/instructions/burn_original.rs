@@ -25,7 +25,7 @@ pub fn burn_original(ctx: Context<BurnOriginal>) -> Result<()> {
         ctx.accounts.original_mint_escrow.key(),
         ctx.accounts.master_edition.key(),
         ctx.accounts.token_program.key(),
-        None,
+        Some(ctx.accounts.original_collection_metadata.key()),
     );
     invoke_signed(
         &ix,
@@ -36,6 +36,7 @@ pub fn burn_original(ctx: Context<BurnOriginal>) -> Result<()> {
             ctx.accounts.original_mint_escrow.to_account_info(),
             ctx.accounts.master_edition.to_account_info(),
             ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.original_collection_metadata.to_account_info(),
         ],
         authority_signer_seeds,
     )?;
@@ -77,6 +78,7 @@ pub struct BurnOriginal<'info> {
         ],
         bump,
         has_one = entangled_collection_mint,
+        has_one = original_collection_mint,
         constraint = !entangled_collection.one_way,
     )]
     pub entangled_collection: Account<'info, EntangledCollection>,
@@ -91,6 +93,13 @@ pub struct BurnOriginal<'info> {
         bump
     )]
     pub entangled_pair: Account<'info, EntangledPair>,
+
+    /// CHECK: Metaplex does the verification
+    pub original_collection_mint: UncheckedAccount<'info>,
+
+    /// CHECK: Metaplex does the verification
+    #[account(mut)]
+    pub original_collection_metadata: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub original_mint: Account<'info, Mint>,

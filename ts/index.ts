@@ -340,6 +340,8 @@ export class EntanglerWrapper {
         entanglerAuthority: this.entanglerAuthority,
         entangledCollection: this.entangledCollection,
         entangledPair,
+        originalCollectionMint: this.originalCollectionMint,
+        originalCollectionMetadata: this.originalCollectionMetadata,
         entangledCollectionMint: this.entangledCollectionMint,
         masterEdition,
         originalMint,

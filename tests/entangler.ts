@@ -6,7 +6,7 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
-import { createKeypairs, mintNft, mintToken } from "./utils";
+import { createKeypairs, mintNft, mintToken, verifyCollection } from "./utils";
 import {
   getAccount,
   getAssociatedTokenAddress,
@@ -85,6 +85,7 @@ describe("entangler", () => {
         collectionMint
       );
       originalCollectionMints.push(mint);
+      await verifyCollection(provider, mint, collectionMint, creator);
     }
   });
 

@@ -98,7 +98,7 @@ export const mintToken = async (
 };
 
 export const mintNft = async (
-  provider: anchor.Provider,
+  provider: anchor.AnchorProvider,
   symbol: string,
   creator: anchor.web3.Keypair,
   destination: anchor.web3.PublicKey,
