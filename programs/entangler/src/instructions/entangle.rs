@@ -2,11 +2,15 @@ use anchor_lang::prelude::*;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 
-use crate::seeds::{AUTHORITY_SEED, COLLECTION_SEED, ENTANGLED_MINT_SEED};
-use crate::state::EntangledCollection;
+use crate::seeds::{AUTHORITY_SEED, COLLECTION_SEED, ENTANGLED_MINT_SEED, ENTANGLED_PAIR_SEED};
+use crate::state::{EntangledCollection, EntangledPair};
 
 pub fn entangle(ctx: Context<Entangle>) -> Result<()> {
     msg!("Entangle");
+
+    let pair = &mut ctx.accounts.entangled_pair;
+    pair.original_mint = ctx.accounts.original_mint.key();
+    pair.entangled_mint = ctx.accounts.entangled_mint.key();
 
     // Transfer the original token to an escrow
     let original_transfer_ctx = CpiContext::new(
@@ -59,6 +63,18 @@ pub struct Entangle<'info> {
         has_one = entangled_collection_mint,
     )]
     pub entangled_collection: Account<'info, EntangledCollection>,
+
+    #[account(
+        init_if_needed,
+        payer = signer,
+        space = EntangledPair::LEN,
+        seeds = [
+            ENTANGLED_PAIR_SEED.as_bytes(),
+            &entangled_mint.key().to_bytes(),
+        ],
+        bump
+    )]
+    pub entangled_pair: Account<'info, EntangledPair>,
 
     pub entangled_collection_mint: Account<'info, Mint>,
 

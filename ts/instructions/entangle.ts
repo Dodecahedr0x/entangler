@@ -7,6 +7,7 @@ export interface EntangleAccounts {
   signer: PublicKey
   entanglerAuthority: PublicKey
   entangledCollection: PublicKey
+  entangledPair: PublicKey
   entangledCollectionMint: PublicKey
   entangledCollectionMetadata: PublicKey
   originalMint: PublicKey
@@ -35,6 +36,7 @@ export function entangle(accounts: EntangleAccounts) {
       isSigner: false,
       isWritable: false,
     },
+    { pubkey: accounts.entangledPair, isSigner: false, isWritable: true },
     {
       pubkey: accounts.entangledCollectionMint,
       isSigner: false,

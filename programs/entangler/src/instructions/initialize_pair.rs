@@ -5,14 +5,11 @@ use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
 use mpl_token_metadata::instruction::{create_metadata_accounts_v3, verify_collection};
 use mpl_token_metadata::state::{Collection, Creator, Metadata, TokenMetadataAccount};
 
-use crate::seeds::{AUTHORITY_SEED, COLLECTION_SEED, ENTANGLED_MINT_SEED, ENTANGLED_PAIR_SEED};
-use crate::state::{EntangledCollection, EntangledPair};
+use crate::seeds::{AUTHORITY_SEED, COLLECTION_SEED, ENTANGLED_MINT_SEED};
+use crate::state::EntangledCollection;
 
 pub fn initialize_pair(ctx: Context<InitializePair>) -> Result<()> {
     msg!("Init pair");
-
-    ctx.accounts.entangled_pair.entangled_mint = ctx.accounts.entangled_mint.key();
-    ctx.accounts.entangled_pair.original_mint = ctx.accounts.original_mint.key();
 
     let authority_bump = *ctx.bumps.get("entangler_authority").unwrap();
     let authority_seeds = &[AUTHORITY_SEED.as_bytes(), &[authority_bump]];
@@ -146,18 +143,6 @@ pub struct InitializePair<'info> {
         constraint = mpl_token_metadata::check_id(entangled_collection_metadata.owner),
     )]
     pub entangled_collection_metadata: UncheckedAccount<'info>,
-
-    #[account(
-        init,
-        payer = signer,
-        space = EntangledPair::LEN,
-        seeds = [
-            ENTANGLED_PAIR_SEED.as_bytes(),
-            &entangled_mint.key().to_bytes(),
-        ],
-        bump
-    )]
-    pub entangled_pair: Account<'info, EntangledPair>,
 
     #[account(mut)]
     pub original_mint: Box<Account<'info, Mint>>,

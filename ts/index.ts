@@ -202,7 +202,6 @@ export class EntanglerWrapper {
         true
       );
       const entangledMint = getEntangledMint(this.id, originalMint);
-      const entangledPair = getEntangledPair(entangledMint);
       const entangledMetadata = getMetadata(entangledMint);
       const entangledMintEscrow = getAssociatedTokenAddressSync(
         entangledMint,
@@ -221,7 +220,6 @@ export class EntanglerWrapper {
         originalMint,
         originalMetadata,
         originalMintEscrow,
-        entangledPair,
         entangledMint,
         entangledMetadata,
         entangledMintEscrow,
@@ -265,6 +263,7 @@ export class EntanglerWrapper {
         originalMetadata,
         originalMintAccount,
         originalMintEscrow,
+        entangledPair: getEntangledPair(entangledMint),
         entangledMint,
         entangledMetadata,
         entangledMintAccount,

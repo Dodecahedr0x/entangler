@@ -12,7 +12,6 @@ export interface InitializePairAccounts {
   entangledCollection: PublicKey
   entangledCollectionMint: PublicKey
   entangledCollectionMetadata: PublicKey
-  entangledPair: PublicKey
   originalMint: PublicKey
   originalMetadata: PublicKey
   originalMintEscrow: PublicKey
@@ -49,7 +48,6 @@ export function initializePair(accounts: InitializePairAccounts) {
       isSigner: false,
       isWritable: false,
     },
-    { pubkey: accounts.entangledPair, isSigner: false, isWritable: true },
     { pubkey: accounts.originalMint, isSigner: false, isWritable: true },
     { pubkey: accounts.originalMetadata, isSigner: false, isWritable: false },
     { pubkey: accounts.originalMintEscrow, isSigner: false, isWritable: true },
